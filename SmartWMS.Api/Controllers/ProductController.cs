@@ -1,120 +1,164 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using SmartWMS.Api.Data;
+using SmartWMS.Api.Dtos.Products;
 using SmartWMS.Api.Models;
 
-namespace SmartWMS.Api.Controllers {
+namespace SmartWMS.Api.Controllers;
 
-    [ApiController]
-    [Route("api/[controller]")]
-    public class ProductController : ControllerBase {
+[ApiController]
+[Route("api/[controller]")]
+public class ProductController : ControllerBase
+{
+    private readonly SmartWmsDbContext _dbContext;
 
-        private static readonly List<Product> Products = new() {
-            new Product {
-                Id = 1,
-                Code = "P001",
-                Name = "노트북",
-                StockQuantity = 10
-            },
-            new Product {
-                Id = 2,
-                Code = "P002",
-                Name = "키보드",
-                StockQuantity = 25
-            },
-            new Product {
-                Id = 3,
-                Code = "P003",
-                Name = "마우스",
-                StockQuantity = 40
-            }
+    public ProductController(SmartWmsDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    // 전체 상품 조회
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<Product>>> GetProducts(
+        CancellationToken cancellationToken)
+    {
+        var products = await _dbContext.Products
+            .AsNoTracking()
+            .OrderBy(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        return Ok(products);
+    }
+
+    // 상품 단건 조회
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<Product>> GetProduct(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var product = await _dbContext.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                x => x.Id == id,
+                cancellationToken);
+
+        if (product is null) {
+            return NotFound(new {
+                message = $"ID가 {id}인 상품을 찾을 수 없습니다."
+            });
+        }
+
+        return Ok(product);
+    }
+
+    // 상품 등록
+    [HttpPost]
+    public async Task<ActionResult<Product>> CreateProduct(
+        CreateProductRequest request,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCode =
+            request.Code.Trim().ToUpperInvariant();
+
+        var normalizedName = request.Name.Trim();
+
+        var isDuplicateCode = await _dbContext.Products
+            .AnyAsync(
+                x => x.Code == normalizedCode,
+                cancellationToken);
+
+        if (isDuplicateCode) {
+            return Conflict(new {
+                message =
+                    $"상품 코드 {normalizedCode}는 이미 사용 중입니다."
+            });
+        }
+
+        var product = new Product {
+            Code = normalizedCode,
+            Name = normalizedName,
+            StockQuantity = 0
         };
 
-        // 전체 상품 조회
-        [HttpGet]
-        public ActionResult<IEnumerable<Product>> GetProducts() {
-            return Ok(Products);
+        _dbContext.Products.Add(product);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return CreatedAtAction(
+            nameof(GetProduct),
+            new { id = product.Id },
+            product);
+    }
+
+    // 상품 수정
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<Product>> UpdateProduct(
+        int id,
+        UpdateProductRequest request,
+        CancellationToken cancellationToken)
+    {
+        var product = await _dbContext.Products
+            .FirstOrDefaultAsync(
+                x => x.Id == id,
+                cancellationToken);
+
+        if (product is null) {
+            return NotFound(new {
+                message = $"ID가 {id}인 상품을 찾을 수 없습니다."
+            });
         }
 
-        // 상품 단건 조회
-        [HttpGet("{id:int}")]
-        public ActionResult<Product> GetProduct(int id) {
-            var product = Products.FirstOrDefault(x => x.Id == id);
+        var normalizedCode =
+            request.Code.Trim().ToUpperInvariant();
 
-            if (product is null) {
-                return NotFound(new {
-                    message = $"ID가 {id}인 상품을 찾을 수 없습니다."
-                });
-            }
+        var normalizedName = request.Name.Trim();
 
-            return Ok(product);
+        var isDuplicateCode = await _dbContext.Products
+            .AnyAsync(
+                x => x.Id != id &&
+                     x.Code == normalizedCode,
+                cancellationToken);
+
+        if (isDuplicateCode) {
+            return Conflict(new {
+                message =
+                    $"상품 코드 {normalizedCode}는 이미 사용 중입니다."
+            });
         }
 
-        // 상품 등록
-        [HttpPost]
-        public ActionResult<Product> CreateProduct(Product product) {
-            var isDuplicateCode = Products.Any(x => x.Code == product.Code);
+        product.Code = normalizedCode;
+        product.Name = normalizedName;
 
-            if (isDuplicateCode) {
-                return BadRequest(new {
-                    message = $"상품 코드 {product.Code}는 이미 사용 중입니다."
-                });
-            }
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
-            product.Id = Products.Count == 0
-                ? 1
-                : Products.Max(x => x.Id) + 1;
+        return Ok(product);
+    }
 
-            Products.Add(product);
+    // 상품 삭제
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteProduct(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var product = await _dbContext.Products
+            .FirstOrDefaultAsync(
+                x => x.Id == id,
+                cancellationToken);
 
-            return CreatedAtAction(
-                nameof(GetProduct),
-                new { id = product.Id },
-                product
-            );
+        if (product is null) {
+            return NotFound(new {
+                message = $"ID가 {id}인 상품을 찾을 수 없습니다."
+            });
         }
 
-        // 상품 수정
-        [HttpPut("{id:int}")]
-        public ActionResult<Product> UpdateProduct(int id, Product request) {
-            var product = Products.FirstOrDefault(x => x.Id == id);
-
-            if (product is null) {
-                return NotFound(new {
-                    message = $"ID가 {id}인 상품을 찾을 수 없습니다."
-                });
-            }
-
-            var isDuplicateCode = Products.Any(x =>
-                x.Id != id &&
-                x.Code == request.Code
-            );
-
-            if (isDuplicateCode) {
-                return BadRequest(new {
-                    message = $"상품 코드 {request.Code}는 이미 사용 중입니다."
-                });
-            }
-
-            product.Code = request.Code;
-            product.Name = request.Name;
-            product.StockQuantity = request.StockQuantity;
-
-            return Ok(product);
+        if (product.StockQuantity > 0) {
+            return Conflict(new {
+                message = "재고가 남아 있는 상품은 삭제할 수 없습니다."
+            });
         }
 
-        // 상품 삭제
-        [HttpDelete("{id:int}")]
-        public IActionResult DeleteProduct(int id) {
-            var product = Products.FirstOrDefault(x => x.Id == id);
+        _dbContext.Products.Remove(product);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
-            if (product is null) {
-                return NotFound(new {
-                    message = $"ID가 {id}인 상품을 찾을 수 없습니다."
-                });
-            }
-
-            Products.Remove(product);
-
-            return NoContent();
-        }
+        return NoContent();
     }
 }
