@@ -6,6 +6,9 @@ using SmartWMS.Api.Models;
 
 namespace SmartWMS.Api.Controllers;
 
+/// <summary>
+/// 상품 관련 API
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class ProductController : ControllerBase

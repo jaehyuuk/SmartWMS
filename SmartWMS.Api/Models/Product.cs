@@ -1,5 +1,8 @@
 ﻿namespace SmartWMS.Api.Models;
 
+/// <summary>
+/// 상품 DB
+/// </summary>
 public class Product {
     /// <summary>
     /// 상품 고유 번호
