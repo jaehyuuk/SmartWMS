@@ -15,6 +15,7 @@ public class SmartWmsDbContext : DbContext {
 
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Inbound> Inbounds => Set<Inbound>();
+    public DbSet<Outbound> Outbounds => Set<Outbound>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
         base.OnModelCreating(modelBuilder);
@@ -66,6 +67,30 @@ public class SmartWmsDbContext : DbContext {
                 .WithMany()
                 .HasForeignKey(x => x.ProductId)
                 .OnDelete(DeleteBehavior.Restrict); // 연결 이력이 있는 경우 삭제 못하도록
+        });
+
+        modelBuilder.Entity<Outbound>(entity => { // Outbound
+            entity.ToTable(
+                "Outbounds",
+                table => table.HasCheckConstraint(
+                    "CK_Outbounds_Quantity",
+                    "[Quantity] > 0"));
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Quantity)
+                .IsRequired();
+
+            entity.Property(x => x.OutboundDate)
+                .IsRequired();
+
+            entity.Property(x => x.Memo)
+                .HasMaxLength(200);
+
+            entity.HasOne(x => x.Product)
+                .WithMany()
+                .HasForeignKey(x => x.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }
