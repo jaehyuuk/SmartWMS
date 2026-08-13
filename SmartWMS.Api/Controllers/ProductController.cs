@@ -23,15 +23,20 @@ public class ProductController : ControllerBase
 
     // 전체 상품 조회
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Product>>> GetProducts(
+    public async Task<ActionResult<ApiResponse<IEnumerable<ProductResponse>>>> GetProducts(
         CancellationToken cancellationToken)
     {
         var products = await _dbContext.Products
             .AsNoTracking()
-            .OrderBy(x => x.Id)
+            .Select(x => new ProductResponse {
+                Id = x.Id,
+                Code = x.Code,
+                Name = x.Name,
+                StockQuantity = x.StockQuantity
+            })
             .ToListAsync(cancellationToken);
 
-        return Ok(new ApiResponse<IEnumerable<Product>> {
+        return Ok(new ApiResponse<IEnumerable<ProductResponse>> {
             Success = true,
             Message = "상품 목록 조회에 성공했습니다.",
             Data = products
@@ -40,10 +45,11 @@ public class ProductController : ControllerBase
 
     // 상품 단건 조회
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<Product>> GetProduct(
+    public async Task<ActionResult<ApiResponse<ProductResponse>>> GetProduct(
         int id,
         CancellationToken cancellationToken)
     {
+        // 조회 전용이므로 변경 추적하지 않음
         var product = await _dbContext.Products
             .AsNoTracking()
             .FirstOrDefaultAsync(
@@ -51,21 +57,29 @@ public class ProductController : ControllerBase
                 cancellationToken);
 
         if (product is null) {
-            return NotFound(new {
-                message = $"ID가 {id}인 상품을 찾을 수 없습니다."
+            return NotFound(new ApiErrorResponse {
+                StatusCode = StatusCodes.Status404NotFound,
+                Message = $"ID가 {id}인 상품을 찾을 수 없습니다."
             });
         }
 
-        return Ok(new ApiResponse<Product> {
+        var response = new ProductResponse {
+            Id = product.Id,
+            Code = product.Code,
+            Name = product.Name,
+            StockQuantity = product.StockQuantity
+        };
+
+        return Ok(new ApiResponse<ProductResponse> {
             Success = true,
             Message = "상품 조회에 성공했습니다.",
-            Data = product
+            Data = response
         });
     }
 
     // 상품 등록
     [HttpPost]
-    public async Task<ActionResult<Product>> CreateProduct(
+    public async Task<ActionResult<ApiResponse<ProductResponse>>> CreateProduct(
         CreateProductRequest request,
         CancellationToken cancellationToken)
     {
@@ -95,19 +109,26 @@ public class ProductController : ControllerBase
         _dbContext.Products.Add(product);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        var response = new ProductResponse {
+            Id = product.Id,
+            Code = product.Code,
+            Name = product.Name,
+            StockQuantity = product.StockQuantity
+        };
+
         return CreatedAtAction(
             nameof(GetProduct),
             new { id = product.Id },
-            new ApiResponse<Product> {
+            new ApiResponse<ProductResponse> {
                 Success = true,
                 Message = "상품이 등록되었습니다.",
-                Data = product
+                Data = response
             });
     }
 
     // 상품 수정
     [HttpPut("{id:int}")]
-    public async Task<ActionResult<Product>> UpdateProduct(
+    public async Task<ActionResult<ApiResponse<ProductResponse>>> UpdateProduct(
         int id,
         UpdateProductRequest request,
         CancellationToken cancellationToken)
@@ -146,10 +167,17 @@ public class ProductController : ControllerBase
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(new ApiResponse<Product> {
+        var response = new ProductResponse {
+            Id = product.Id,
+            Code = product.Code,
+            Name = product.Name,
+            StockQuantity = product.StockQuantity
+        };
+
+        return Ok(new ApiResponse<ProductResponse> {
             Success = true,
             Message = "상품이 수정되었습니다.",
-            Data = product
+            Data = response
         });
     }
 

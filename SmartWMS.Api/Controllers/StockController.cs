@@ -19,12 +19,11 @@ public class StockController : ControllerBase
 
     // 전체 재고이력 조회
     [HttpGet("history")]
-    public async Task<ActionResult<IEnumerable<StockHistoryResponse>>> GetHistory(
+    public async Task<ActionResult<ApiResponse<IEnumerable<StockHistoryResponse>>>> GetHistory(
         CancellationToken cancellationToken)
     {
         var inboundHistory = await _dbContext.Inbounds
             .AsNoTracking()
-            .Include(x => x.Product)
             .Select(x => new StockHistoryResponse {
                 Id = x.Id,
                 ProductId = x.ProductId,
@@ -39,7 +38,6 @@ public class StockController : ControllerBase
 
         var outboundHistory = await _dbContext.Outbounds
             .AsNoTracking()
-            .Include(x => x.Product)
             .Select(x => new StockHistoryResponse {
                 Id = x.Id,
                 ProductId = x.ProductId,
@@ -52,6 +50,7 @@ public class StockController : ControllerBase
             })
             .ToListAsync(cancellationToken);
 
+        // 입고와 출고 이력을 하나의 재고 변동 이력으로 통합
         var history = inboundHistory
             .Concat(outboundHistory)
             .OrderByDescending(x => x.Date)
@@ -66,18 +65,20 @@ public class StockController : ControllerBase
 
     // 상품별 재고이력 조회
     [HttpGet("history/product/{productId:int}")]
-    public async Task<ActionResult<IEnumerable<StockHistoryResponse>>> GetHistoryByProduct(
-    int productId,
-    CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<IEnumerable<StockHistoryResponse>>>> GetHistoryByProduct(
+        int productId,
+        CancellationToken cancellationToken)
     {
+        // 상품 존재 여부 확인
         var productExists = await _dbContext.Products
             .AnyAsync(
                 x => x.Id == productId,
                 cancellationToken);
 
         if (!productExists) {
-            return NotFound(new {
-                message = $"ID가 {productId}인 상품을 찾을 수 없습니다."
+            return NotFound(new ApiErrorResponse {
+                StatusCode = StatusCodes.Status404NotFound,
+                Message = $"ID가 {productId}인 상품을 찾을 수 없습니다."
             });
         }
 
