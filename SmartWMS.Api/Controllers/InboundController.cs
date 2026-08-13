@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SmartWMS.Api.Common;
 using SmartWMS.Api.Data;
 using SmartWMS.Api.Dtos.Inbounds;
 using SmartWMS.Api.Models;
@@ -53,7 +54,11 @@ public class InboundController : ControllerBase
         return CreatedAtAction(
             nameof(GetInbound),
             new { id = inbound.Id },
-            inbound);
+            new ApiResponse<Inbound> {
+                Success = true,
+                Message = "입고가 등록되었습니다.",
+                Data = inbound
+            });
     }
 
     //입고 이력 조회
@@ -75,7 +80,11 @@ public class InboundController : ControllerBase
             });
         }
 
-        return Ok(inbound);
+        return Ok(new ApiResponse<Inbound> {
+            Success = true,
+            Message = "입고 이력 조회에 성공했습니다.",
+            Data = inbound
+        });
     }
 
     // 입고 목록 조회
@@ -89,7 +98,11 @@ public class InboundController : ControllerBase
             .OrderByDescending(x => x.InboundDate)
             .ToListAsync(cancellationToken);
 
-        return Ok(inbounds);
+        return Ok(new ApiResponse<IEnumerable<Inbound>> {
+            Success = true,
+            Message = "입고 이력 목록 조회에 성공했습니다.",
+            Data = inbounds
+        });
     }
 
     // 상품별 입고 이력 조회
@@ -116,6 +129,10 @@ public class InboundController : ControllerBase
             .OrderByDescending(x => x.InboundDate)
             .ToListAsync(cancellationToken);
 
-        return Ok(inbounds);
+        return Ok(new ApiResponse<IEnumerable<Inbound>> {
+            Success = true,
+            Message = "상품별 입고 이력 조회에 성공했습니다.",
+            Data = inbounds
+        });
     }
 }

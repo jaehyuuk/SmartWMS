@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SmartWMS.Api.Common;
 using SmartWMS.Api.Data;
 using SmartWMS.Api.Dtos.Stocks;
 
@@ -56,7 +57,11 @@ public class StockController : ControllerBase
             .OrderByDescending(x => x.Date)
             .ToList();
 
-        return Ok(history);
+        return Ok(new ApiResponse<IEnumerable<StockHistoryResponse>> {
+            Success = true,
+            Message = "재고 이력 조회에 성공했습니다.",
+            Data = history
+        });
     }
 
     // 상품별 재고이력 조회
@@ -111,6 +116,10 @@ public class StockController : ControllerBase
             .OrderByDescending(x => x.Date)
             .ToList();
 
-        return Ok(history);
+        return Ok(new ApiResponse<IEnumerable<StockHistoryResponse>> {
+            Success = true,
+            Message = "상품별 재고 이력 조회에 성공했습니다.",
+            Data = history
+        });
     }
 }

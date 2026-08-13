@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SmartWMS.Api.Common;
 using SmartWMS.Api.Data;
 using SmartWMS.Api.Dtos.Products;
 using SmartWMS.Api.Models;
@@ -30,7 +31,11 @@ public class ProductController : ControllerBase
             .OrderBy(x => x.Id)
             .ToListAsync(cancellationToken);
 
-        return Ok(products);
+        return Ok(new ApiResponse<IEnumerable<Product>> {
+            Success = true,
+            Message = "상품 목록 조회에 성공했습니다.",
+            Data = products
+        });
     }
 
     // 상품 단건 조회
@@ -51,7 +56,11 @@ public class ProductController : ControllerBase
             });
         }
 
-        return Ok(product);
+        return Ok(new ApiResponse<Product> {
+            Success = true,
+            Message = "상품 조회에 성공했습니다.",
+            Data = product
+        });
     }
 
     // 상품 등록
@@ -89,7 +98,11 @@ public class ProductController : ControllerBase
         return CreatedAtAction(
             nameof(GetProduct),
             new { id = product.Id },
-            product);
+            new ApiResponse<Product> {
+                Success = true,
+                Message = "상품이 등록되었습니다.",
+                Data = product
+            });
     }
 
     // 상품 수정
@@ -133,7 +146,11 @@ public class ProductController : ControllerBase
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(product);
+        return Ok(new ApiResponse<Product> {
+            Success = true,
+            Message = "상품이 수정되었습니다.",
+            Data = product
+        });
     }
 
     // 상품 삭제

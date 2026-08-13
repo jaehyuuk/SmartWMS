@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SmartWMS.Api.Common;
 using SmartWMS.Api.Data;
 using SmartWMS.Api.Dtos.Outbounds;
 using SmartWMS.Api.Models;
@@ -56,7 +57,11 @@ public class OutboundController : ControllerBase
         return CreatedAtAction(
             nameof(GetOutbound),
             new { id = outbound.Id },
-            outbound);
+            new ApiResponse<Outbound> {
+                Success = true,
+                Message = "출고가 등록되었습니다.",
+                Data = outbound
+            });
     }
 
     // 출고 이력 조회
@@ -78,7 +83,11 @@ public class OutboundController : ControllerBase
             });
         }
 
-        return Ok(outbound);
+        return Ok(new ApiResponse<Outbound> {
+            Success = true,
+            Message = "출고 이력 조회에 성공했습니다.",
+            Data = outbound
+        });
     }
 
     // 출고 전체 이력 조회
@@ -92,7 +101,11 @@ public class OutboundController : ControllerBase
             .OrderByDescending(x => x.OutboundDate)
             .ToListAsync(cancellationToken);
 
-        return Ok(outbounds);
+        return Ok(new ApiResponse<IEnumerable<Outbound>> {
+            Success = true,
+            Message = "출고 이력 목록 조회에 성공했습니다.",
+            Data = outbounds
+        });
     }
 
     // 상품별 출고조회
@@ -119,6 +132,10 @@ public class OutboundController : ControllerBase
             .OrderByDescending(x => x.OutboundDate)
             .ToListAsync(cancellationToken);
 
-        return Ok(outbounds);
+        return Ok(new ApiResponse<IEnumerable<Outbound>> {
+            Success = true,
+            Message = "상품별 출고 이력 조회에 성공했습니다.",
+            Data = outbounds
+        });
     }
 }
