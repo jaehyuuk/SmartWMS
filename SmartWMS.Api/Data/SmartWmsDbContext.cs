@@ -13,6 +13,7 @@ public class SmartWmsDbContext : DbContext {
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Inbound> Inbounds => Set<Inbound>();
     public DbSet<Outbound> Outbounds => Set<Outbound>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
         base.OnModelCreating(modelBuilder);
@@ -93,6 +94,33 @@ public class SmartWmsDbContext : DbContext {
                 .WithMany()
                 .HasForeignKey(x => x.ProductId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // 사용자
+        modelBuilder.Entity<User>(entity => {
+            entity.ToTable("Users");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.UserId)
+                .HasMaxLength(50)
+                .IsRequired();
+
+            // 로그인 아이디는 중복될 수 없음
+            entity.HasIndex(x => x.UserId)
+                .IsUnique();
+
+            entity.Property(x => x.PasswordHash)
+                .HasMaxLength(200)
+                .IsRequired();
+
+            entity.Property(x => x.Name)
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(x => x.Role)
+                .HasMaxLength(20)
+                .IsRequired();
         });
     }
 }

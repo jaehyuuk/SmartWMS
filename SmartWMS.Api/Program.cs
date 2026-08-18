@@ -1,7 +1,10 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartWMS.Api.Common;
 using SmartWMS.Api.Data;
+using SmartWMS.Api.Models;
+using SmartWMS.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,6 +51,12 @@ builder.Services.AddSwaggerGen();
 // 전역 예외 처리 등록
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
+
+// Hash 등록
+builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+
+// JWT 토큰 서비스 등록
+builder.Services.AddScoped<JwtTokenService>();
 
 var app = builder.Build();
 
