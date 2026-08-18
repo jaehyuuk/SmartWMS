@@ -10,7 +10,7 @@ public class ApiResponse<T> {
     public bool Success { get; set; }
 
     /// <summary>
-    /// 클라이언트에게 전달할 메시지
+    /// 응답 메시지
     /// </summary>
     public string Message { get; set; } = string.Empty;
 

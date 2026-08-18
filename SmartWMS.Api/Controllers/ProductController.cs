@@ -12,12 +12,10 @@ namespace SmartWMS.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class ProductController : ControllerBase
-{
+public class ProductController : ControllerBase {
     private readonly SmartWmsDbContext _dbContext;
 
-    public ProductController(SmartWmsDbContext dbContext)
-    {
+    public ProductController(SmartWmsDbContext dbContext) {
         _dbContext = dbContext;
     }
 
@@ -49,7 +47,6 @@ public class ProductController : ControllerBase
         int id,
         CancellationToken cancellationToken)
     {
-        // 조회 전용이므로 변경 추적하지 않음
         var product = await _dbContext.Products
             .AsNoTracking()
             .FirstOrDefaultAsync(
@@ -63,17 +60,10 @@ public class ProductController : ControllerBase
             });
         }
 
-        var response = new ProductResponse {
-            Id = product.Id,
-            Code = product.Code,
-            Name = product.Name,
-            StockQuantity = product.StockQuantity
-        };
-
         return Ok(new ApiResponse<ProductResponse> {
             Success = true,
             Message = "상품 조회에 성공했습니다.",
-            Data = response
+            Data = ToResponse(product)
         });
     }
 
@@ -86,17 +76,19 @@ public class ProductController : ControllerBase
         var normalizedCode =
             request.Code.Trim().ToUpperInvariant();
 
-        var normalizedName = request.Name.Trim();
+        var normalizedName =
+            request.Name.Trim();
 
+        // 상품 코드는 중복 등록할 수 없음
         var isDuplicateCode = await _dbContext.Products
             .AnyAsync(
                 x => x.Code == normalizedCode,
                 cancellationToken);
 
         if (isDuplicateCode) {
-            return Conflict(new {
-                message =
-                    $"상품 코드 {normalizedCode}는 이미 사용 중입니다."
+            return Conflict(new ApiErrorResponse {
+                StatusCode = StatusCodes.Status409Conflict,
+                Message = $"상품 코드 {normalizedCode}는 이미 사용 중입니다."
             });
         }
 
@@ -109,20 +101,13 @@ public class ProductController : ControllerBase
         _dbContext.Products.Add(product);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        var response = new ProductResponse {
-            Id = product.Id,
-            Code = product.Code,
-            Name = product.Name,
-            StockQuantity = product.StockQuantity
-        };
-
         return CreatedAtAction(
             nameof(GetProduct),
             new { id = product.Id },
             new ApiResponse<ProductResponse> {
                 Success = true,
                 Message = "상품이 등록되었습니다.",
-                Data = response
+                Data = ToResponse(product)
             });
     }
 
@@ -139,16 +124,19 @@ public class ProductController : ControllerBase
                 cancellationToken);
 
         if (product is null) {
-            return NotFound(new {
-                message = $"ID가 {id}인 상품을 찾을 수 없습니다."
+            return NotFound(new ApiErrorResponse {
+                StatusCode = StatusCodes.Status404NotFound,
+                Message = $"ID가 {id}인 상품을 찾을 수 없습니다."
             });
         }
 
         var normalizedCode =
             request.Code.Trim().ToUpperInvariant();
 
-        var normalizedName = request.Name.Trim();
+        var normalizedName =
+            request.Name.Trim();
 
+        // 자기 자신을 제외하고 동일한 상품 코드가 있는지 확인
         var isDuplicateCode = await _dbContext.Products
             .AnyAsync(
                 x => x.Id != id &&
@@ -156,9 +144,9 @@ public class ProductController : ControllerBase
                 cancellationToken);
 
         if (isDuplicateCode) {
-            return Conflict(new {
-                message =
-                    $"상품 코드 {normalizedCode}는 이미 사용 중입니다."
+            return Conflict(new ApiErrorResponse {
+                StatusCode = StatusCodes.Status409Conflict,
+                Message = $"상품 코드 {normalizedCode}는 이미 사용 중입니다."
             });
         }
 
@@ -167,17 +155,10 @@ public class ProductController : ControllerBase
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        var response = new ProductResponse {
-            Id = product.Id,
-            Code = product.Code,
-            Name = product.Name,
-            StockQuantity = product.StockQuantity
-        };
-
         return Ok(new ApiResponse<ProductResponse> {
             Success = true,
             Message = "상품이 수정되었습니다.",
-            Data = response
+            Data = ToResponse(product)
         });
     }
 
@@ -193,14 +174,17 @@ public class ProductController : ControllerBase
                 cancellationToken);
 
         if (product is null) {
-            return NotFound(new {
-                message = $"ID가 {id}인 상품을 찾을 수 없습니다."
+            return NotFound(new ApiErrorResponse {
+                StatusCode = StatusCodes.Status404NotFound,
+                Message = $"ID가 {id}인 상품을 찾을 수 없습니다."
             });
         }
 
+        // 재고가 남아 있는 상품은 삭제할 수 없음
         if (product.StockQuantity > 0) {
-            return Conflict(new {
-                message = "재고가 남아 있는 상품은 삭제할 수 없습니다."
+            return Conflict(new ApiErrorResponse {
+                StatusCode = StatusCodes.Status409Conflict,
+                Message = "재고가 남아 있는 상품은 삭제할 수 없습니다."
             });
         }
 
@@ -208,5 +192,16 @@ public class ProductController : ControllerBase
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return NoContent();
+    }
+
+    // Product Entity를 API 응답 DTO로 변환
+    private static ProductResponse ToResponse(Product product)
+    {
+        return new ProductResponse {
+            Id = product.Id,
+            Code = product.Code,
+            Name = product.Name,
+            StockQuantity = product.StockQuantity
+        };
     }
 }

@@ -8,20 +8,18 @@ using SmartWMS.Api.Models;
 namespace SmartWMS.Api.Controllers;
 
 /// <summary>
-/// 입고 API
+/// 입고 관련 API
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class InboundController : ControllerBase
-{
+public class InboundController : ControllerBase {
     private readonly SmartWmsDbContext _dbContext;
 
-    public InboundController(SmartWmsDbContext dbContext)
-    {
+    public InboundController(SmartWmsDbContext dbContext) {
         _dbContext = dbContext;
     }
 
-    //입고 생성
+    // 입고 등록
     [HttpPost]
     public async Task<ActionResult<ApiResponse<InboundResponse>>> CreateInbound(
         CreateInboundRequest request,
@@ -52,18 +50,8 @@ public class InboundController : ControllerBase
 
         _dbContext.Inbounds.Add(inbound);
 
-        // 입고 이력 추가 + 상품 재고 증가를 한 번에 저장
+        // 입고 이력 추가와 재고 증가를 한 번에 저장
         await _dbContext.SaveChangesAsync(cancellationToken);
-
-        var response = new InboundResponse {
-            Id = inbound.Id,
-            ProductId = inbound.ProductId,
-            ProductCode = product.Code,
-            ProductName = product.Name,
-            Quantity = inbound.Quantity,
-            InboundDate = inbound.InboundDate,
-            Memo = inbound.Memo
-        };
 
         return CreatedAtAction(
             nameof(GetInbound),
@@ -71,11 +59,11 @@ public class InboundController : ControllerBase
             new ApiResponse<InboundResponse> {
                 Success = true,
                 Message = "입고가 등록되었습니다.",
-                Data = response
+                Data = ToResponse(inbound, product)
             });
     }
 
-    //입고 이력 조회
+    // 입고 단건 조회
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ApiResponse<InboundResponse>>> GetInbound(
         int id,
@@ -109,7 +97,7 @@ public class InboundController : ControllerBase
         });
     }
 
-    // 입고 목록 조회
+    // 전체 입고 이력 조회
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IEnumerable<InboundResponse>>>> GetInbounds(
         CancellationToken cancellationToken)
@@ -141,7 +129,7 @@ public class InboundController : ControllerBase
         int productId,
         CancellationToken cancellationToken)
     {
-        // 상품 존재 여부 확인
+        // 조회할 상품이 존재하는지 확인
         var productExists = await _dbContext.Products
             .AnyAsync(
                 x => x.Id == productId,
@@ -174,5 +162,21 @@ public class InboundController : ControllerBase
             Message = "상품별 입고 이력 조회에 성공했습니다.",
             Data = inbounds
         });
+    }
+
+    // Inbound Entity를 API 응답 DTO로 변환
+    private static InboundResponse ToResponse(
+        Inbound inbound,
+        Product product)
+    {
+        return new InboundResponse {
+            Id = inbound.Id,
+            ProductId = inbound.ProductId,
+            ProductCode = product.Code,
+            ProductName = product.Name,
+            Quantity = inbound.Quantity,
+            InboundDate = inbound.InboundDate,
+            Memo = inbound.Memo
+        };
     }
 }

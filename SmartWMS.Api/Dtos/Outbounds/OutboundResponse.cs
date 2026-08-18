@@ -1,16 +1,16 @@
 ﻿namespace SmartWMS.Api.Dtos.Outbounds;
 
 /// <summary>
-/// 출고 이력을 클라이언트에 반환하기 위한 응답 DTO
+/// 출고 이력을 반환하기 위한 응답 DTO
 /// </summary>
 public class OutboundResponse {
     /// <summary>
-    /// 출고 이력 고유 Id
+    /// 출고 이력 고유 번호
     /// </summary>
     public int Id { get; set; }
 
     /// <summary>
-    /// 상품 Id
+    /// 상품 고유 번호
     /// </summary>
     public int ProductId { get; set; }
 
@@ -35,7 +35,7 @@ public class OutboundResponse {
     public DateTime OutboundDate { get; set; }
 
     /// <summary>
-    /// 출고 비고
+    /// 비고
     /// </summary>
     public string Memo { get; set; } = string.Empty;
 }

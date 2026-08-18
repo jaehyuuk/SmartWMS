@@ -1,11 +1,11 @@
 ﻿namespace SmartWMS.Api.Dtos.Products;
 
 /// <summary>
-/// 상품 정보를 클라이언트에 반환하기 위한 응답 DTO
+/// 상품 정보를 반환하기 위한 응답 DTO
 /// </summary>
 public class ProductResponse {
     /// <summary>
-    /// 상품 고유 Id
+    /// 상품 고유 번호
     /// </summary>
     public int Id { get; set; }
 

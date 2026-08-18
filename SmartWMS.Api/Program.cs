@@ -5,6 +5,7 @@ using SmartWMS.Api.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// DB 연결 문자열 조회
 var connectionString =
     builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException(
@@ -16,7 +17,7 @@ builder.Services.AddControllers();
 // DTO Validation 실패 시 공통 오류 응답 형식 사용
 builder.Services.Configure<ApiBehaviorOptions>(options => {
     options.InvalidModelStateResponseFactory = context => {
-        // Validation 오류 메시지를 하나의 문자열로 합침
+        // Validation 오류 메시지를 하나로 합침
         var errors = context.ModelState
             .Where(x => x.Value?.Errors.Count > 0)
             .SelectMany(x => x.Value!.Errors)
@@ -36,26 +37,27 @@ builder.Services.Configure<ApiBehaviorOptions>(options => {
     };
 });
 
-// DbContext 등록
+// EF Core DbContext 등록
 builder.Services.AddDbContext<SmartWmsDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// Swagger
+// Swagger 등록
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// 전역 예외 처리
+// 전역 예외 처리 등록
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 
+// 개발 환경에서만 Swagger 사용
 if (app.Environment.IsDevelopment()) {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// Controller 실행보다 먼저 등록되어 있어야 함
+// Controller 요청 처리 전에 전역 예외 처리 적용
 app.UseExceptionHandler();
 
 app.UseHttpsRedirection();

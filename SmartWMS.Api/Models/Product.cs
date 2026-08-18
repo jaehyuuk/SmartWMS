@@ -1,7 +1,7 @@
 ﻿namespace SmartWMS.Api.Models;
 
 /// <summary>
-/// 상품 DB
+/// 상품 정보를 저장하는 Entity
 /// </summary>
 public class Product {
     /// <summary>

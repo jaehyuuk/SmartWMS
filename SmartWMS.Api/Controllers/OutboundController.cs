@@ -7,18 +7,19 @@ using SmartWMS.Api.Models;
 
 namespace SmartWMS.Api.Controllers;
 
+/// <summary>
+/// 출고 관련 API
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class OutboundController : ControllerBase
-{
+public class OutboundController : ControllerBase {
     private readonly SmartWmsDbContext _dbContext;
 
-    public OutboundController(SmartWmsDbContext dbContext)
-    {
+    public OutboundController(SmartWmsDbContext dbContext) {
         _dbContext = dbContext;
     }
 
-    // 출고 생성
+    // 출고 등록
     [HttpPost]
     public async Task<ActionResult<ApiResponse<OutboundResponse>>> CreateOutbound(
         CreateOutboundRequest request,
@@ -57,18 +58,8 @@ public class OutboundController : ControllerBase
 
         _dbContext.Outbounds.Add(outbound);
 
-        // 출고 이력 추가 + 상품 재고 감소를 한 번에 저장
+        // 출고 이력 추가와 재고 감소를 한 번에 저장
         await _dbContext.SaveChangesAsync(cancellationToken);
-
-        var response = new OutboundResponse {
-            Id = outbound.Id,
-            ProductId = outbound.ProductId,
-            ProductCode = product.Code,
-            ProductName = product.Name,
-            Quantity = outbound.Quantity,
-            OutboundDate = outbound.OutboundDate,
-            Memo = outbound.Memo
-        };
 
         return CreatedAtAction(
             nameof(GetOutbound),
@@ -76,11 +67,11 @@ public class OutboundController : ControllerBase
             new ApiResponse<OutboundResponse> {
                 Success = true,
                 Message = "출고가 등록되었습니다.",
-                Data = response
+                Data = ToResponse(outbound, product)
             });
     }
 
-    // 출고 이력 조회
+    // 출고 단건 조회
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ApiResponse<OutboundResponse>>> GetOutbound(
         int id,
@@ -114,7 +105,7 @@ public class OutboundController : ControllerBase
         });
     }
 
-    // 출고 전체 이력 조회
+    // 전체 출고 이력 조회
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IEnumerable<OutboundResponse>>>> GetOutbounds(
         CancellationToken cancellationToken)
@@ -140,12 +131,13 @@ public class OutboundController : ControllerBase
         });
     }
 
-    // 상품별 출고조회
+    // 상품별 출고 이력 조회
     [HttpGet("product/{productId:int}")]
     public async Task<ActionResult<ApiResponse<IEnumerable<OutboundResponse>>>> GetOutboundsByProduct(
         int productId,
         CancellationToken cancellationToken)
     {
+        // 조회할 상품이 존재하는지 확인
         var productExists = await _dbContext.Products
             .AnyAsync(
                 x => x.Id == productId,
@@ -178,5 +170,21 @@ public class OutboundController : ControllerBase
             Message = "상품별 출고 이력 조회에 성공했습니다.",
             Data = outbounds
         });
+    }
+
+    // Outbound Entity를 API 응답 DTO로 변환
+    private static OutboundResponse ToResponse(
+        Outbound outbound,
+        Product product)
+    {
+        return new OutboundResponse {
+            Id = outbound.Id,
+            ProductId = outbound.ProductId,
+            ProductCode = product.Code,
+            ProductName = product.Name,
+            Quantity = outbound.Quantity,
+            OutboundDate = outbound.OutboundDate,
+            Memo = outbound.Memo
+        };
     }
 }
