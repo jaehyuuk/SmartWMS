@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartWMS.Api.Common;
 using SmartWMS.Api.Data;
@@ -12,6 +13,7 @@ namespace SmartWMS.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class InboundController : ControllerBase {
     private readonly SmartWmsDbContext _dbContext;
 

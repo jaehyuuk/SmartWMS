@@ -4,6 +4,7 @@ using SmartWMS.Api.Common;
 using SmartWMS.Api.Data;
 using SmartWMS.Api.Dtos.Products;
 using SmartWMS.Api.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace SmartWMS.Api.Controllers;
 
@@ -12,6 +13,7 @@ namespace SmartWMS.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ProductController : ControllerBase {
     private readonly SmartWmsDbContext _dbContext;
 
@@ -163,6 +165,7 @@ public class ProductController : ControllerBase {
     }
 
     // 상품 삭제
+    [Authorize(Roles = "ADMIN")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteProduct(
         int id,

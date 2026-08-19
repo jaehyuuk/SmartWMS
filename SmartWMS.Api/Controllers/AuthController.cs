@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartWMS.Api.Common;
@@ -6,6 +7,7 @@ using SmartWMS.Api.Data;
 using SmartWMS.Api.Dtos.Auth;
 using SmartWMS.Api.Models;
 using SmartWMS.Api.Services;
+using System.Security.Claims;
 
 namespace SmartWMS.Api.Controllers;
 
@@ -30,6 +32,7 @@ public class AuthController : ControllerBase {
     }
 
     // 회원 등록
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<ActionResult<ApiResponse<object>>> Register(
         RegisterRequest request,
@@ -77,6 +80,8 @@ public class AuthController : ControllerBase {
         });
     }
 
+    // 로그인
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<ApiResponse<object>>> Login(
     LoginRequest request,
@@ -119,6 +124,47 @@ public class AuthController : ControllerBase {
             Message = "로그인에 성공했습니다.",
             Data = new {
                 accessToken,
+                user.Id,
+                user.UserId,
+                user.Name,
+                user.Role
+            }
+        });
+    }
+
+    // 회원조회
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<ActionResult<ApiResponse<object>>> GetMe(
+    CancellationToken cancellationToken)
+    {
+        // JWT Claim에서 로그인한 사용자 Id 조회
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!int.TryParse(userIdValue, out var userId)) {
+            return Unauthorized(new ApiErrorResponse {
+                StatusCode = StatusCodes.Status401Unauthorized,
+                Message = "사용자 인증 정보를 확인할 수 없습니다."
+            });
+        }
+
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                x => x.Id == userId,
+                cancellationToken);
+
+        if (user is null) {
+            return NotFound(new ApiErrorResponse {
+                StatusCode = StatusCodes.Status404NotFound,
+                Message = "사용자 정보를 찾을 수 없습니다."
+            });
+        }
+
+        return Ok(new ApiResponse<object> {
+            Success = true,
+            Message = "회원정보 조회에 성공했습니다.",
+            Data = new {
                 user.Id,
                 user.UserId,
                 user.Name,
