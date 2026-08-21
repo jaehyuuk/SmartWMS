@@ -23,4 +23,9 @@ public class Product {
     /// 현재 재고 수량
     /// </summary>
     public int StockQuantity { get; set; }
+
+    /// <summary>
+    /// 동시성 제어를 위한 버전 값
+    /// </summary>
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 }

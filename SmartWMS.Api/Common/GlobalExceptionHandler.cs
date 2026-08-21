@@ -30,6 +30,14 @@ public class GlobalExceptionHandler : IExceptionHandler {
 
         // 예외 종류에 따라 상태 코드와 메시지 결정
         var response = exception switch {
+            DbUpdateConcurrencyException => new ApiErrorResponse {
+                StatusCode = StatusCodes.Status409Conflict,
+                Message = "다른 요청에 의해 데이터가 변경되었습니다. 다시 시도해주세요.",
+                Detail = _environment.IsDevelopment()
+                    ? exception.Message
+                    : null
+            },
+
             DbUpdateException => new ApiErrorResponse {
                 StatusCode = StatusCodes.Status409Conflict,
                 Message = "데이터 저장 중 충돌이 발생했습니다.",

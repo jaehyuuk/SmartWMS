@@ -42,6 +42,9 @@ public class SmartWmsDbContext : DbContext {
 
             entity.Property(x => x.StockQuantity)
                 .IsRequired();
+
+            entity.Property(x => x.RowVersion)
+                .IsRowVersion();
         });
 
         // 입고 이력
