@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartWMS.Api.Common;
 using SmartWMS.Api.Data;
+using SmartWMS.Api.Dtos.Common;
 using SmartWMS.Api.Dtos.Stocks;
 
 namespace SmartWMS.Api.Controllers;
@@ -22,10 +23,35 @@ public class StockController : ControllerBase {
 
     // 전체 재고 이력 조회
     [HttpGet("history")]
-    public async Task<ActionResult<ApiResponse<IEnumerable<StockHistoryResponse>>>> GetHistory(
+    public async Task<ActionResult<ApiResponse<PagedResponse<StockHistoryResponse>>>> GetHistory(
+        [FromQuery] StockHistorySearchRequest request,
         CancellationToken cancellationToken)
     {
-        var inboundHistory = await _dbContext.Inbounds
+
+        var keyword = request.Keyword?.Trim();
+        var type = request.Type?.Trim().ToUpperInvariant();
+
+        if (type is not null &&
+            type != "INBOUND" &&
+            type != "OUTBOUND") {
+            return BadRequest(new ApiErrorResponse {
+                StatusCode = StatusCodes.Status400BadRequest,
+                Message = "재고 이력 타입이 올바르지 않습니다.",
+                Detail = "Type은 INBOUND 또는 OUTBOUND만 사용할 수 있습니다."
+            });
+        }
+
+        if (request.StartDate.HasValue &&
+            request.EndDate.HasValue &&
+            request.StartDate.Value.Date > request.EndDate.Value.Date) {
+            return BadRequest(new ApiErrorResponse {
+                StatusCode = StatusCodes.Status400BadRequest,
+                Message = "조회 기간이 올바르지 않습니다.",
+                Detail = "StartDate는 EndDate보다 클 수 없습니다."
+            });
+        }
+
+        var inboundQuery = _dbContext.Inbounds
             .AsNoTracking()
             .Select(x => new StockHistoryResponse {
                 Id = x.Id,
@@ -36,10 +62,9 @@ public class StockController : ControllerBase {
                 Quantity = x.Quantity,
                 Date = x.InboundDate,
                 Memo = x.Memo
-            })
-            .ToListAsync(cancellationToken);
+            });
 
-        var outboundHistory = await _dbContext.Outbounds
+        var outboundQuery = _dbContext.Outbounds
             .AsNoTracking()
             .Select(x => new StockHistoryResponse {
                 Id = x.Id,
@@ -50,15 +75,59 @@ public class StockController : ControllerBase {
                 Quantity = -x.Quantity,
                 Date = x.OutboundDate,
                 Memo = x.Memo
-            })
+            });
+
+        var query = inboundQuery.Concat(outboundQuery);
+
+        if (!string.IsNullOrWhiteSpace(keyword)) {
+            query = query.Where(x =>
+                x.ProductCode.Contains(keyword) ||
+                x.ProductName.Contains(keyword));
+        }
+
+        if (!string.IsNullOrWhiteSpace(type)) {
+            query = query.Where(x => x.Type == type);
+        }
+
+        if (request.StartDate.HasValue) {
+            var startDate = request.StartDate.Value.Date;
+
+            query = query.Where(x =>
+                x.Date >= startDate);
+        }
+
+        if (request.EndDate.HasValue) {
+            var endDate = request.EndDate.Value.Date.AddDays(1);
+
+            query = query.Where(x =>
+                x.Date < endDate);
+        }
+
+        var totalCount = await query.CountAsync(
+            cancellationToken);
+
+        var totalPages = (int)Math.Ceiling(
+            totalCount / (double)request.PageSize);
+
+        var items = await query
+            .OrderByDescending(x => x.Date)
+            .ThenByDescending(x => x.Id)
+            .Skip((request.Page - 1) * request.PageSize)
+            .Take(request.PageSize)
             .ToListAsync(cancellationToken);
 
-        var history = MergeHistory(inboundHistory, outboundHistory);
+        var pagedResponse = new PagedResponse<StockHistoryResponse> {
+            Items = items,
+            Page = request.Page,
+            PageSize = request.PageSize,
+            TotalCount = totalCount,
+            TotalPages = totalPages
+        };
 
-        return Ok(new ApiResponse<IEnumerable<StockHistoryResponse>> {
+        return Ok(new ApiResponse<PagedResponse<StockHistoryResponse>> {
             Success = true,
-            Message = "재고 이력 조회에 성공했습니다.",
-            Data = history
+            Message = "재고 이력을 조회했습니다.",
+            Data = pagedResponse
         });
     }
 
