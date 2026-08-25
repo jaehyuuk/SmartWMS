@@ -1,10 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartWMS.Api.Common;
 using SmartWMS.Api.Data;
+using SmartWMS.Api.Dtos.Common;
 using SmartWMS.Api.Dtos.Products;
 using SmartWMS.Api.Models;
-using Microsoft.AspNetCore.Authorization;
 
 namespace SmartWMS.Api.Controllers;
 
@@ -23,11 +24,33 @@ public class ProductController : ControllerBase {
 
     // 전체 상품 조회
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<IEnumerable<ProductResponse>>>> GetProducts(
+    public async Task<ActionResult<ApiResponse<PagedResponse<ProductResponse>>>> GetProducts(
+        [FromQuery] ProductSearchRequest request,
         CancellationToken cancellationToken)
     {
-        var products = await _dbContext.Products
+
+        var keyword = request.Keyword?.Trim();
+
+        var query = _dbContext.Products
             .AsNoTracking()
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(keyword)) {
+            query = query.Where(x =>
+                x.Code.Contains(keyword) ||
+                x.Name.Contains(keyword));
+        }
+
+        var totalCount = await query.CountAsync(
+            cancellationToken);
+
+        var totalPages = (int)Math.Ceiling(
+            totalCount / (double)request.PageSize);
+
+        var items = await query
+            .OrderBy(x => x.Code)
+            .Skip((request.Page - 1) * request.PageSize)
+            .Take(request.PageSize)
             .Select(x => new ProductResponse {
                 Id = x.Id,
                 Code = x.Code,
@@ -36,10 +59,18 @@ public class ProductController : ControllerBase {
             })
             .ToListAsync(cancellationToken);
 
-        return Ok(new ApiResponse<IEnumerable<ProductResponse>> {
+        var pagedResponse = new PagedResponse<ProductResponse> {
+            Items = items,
+            Page = request.Page,
+            PageSize = request.PageSize,
+            TotalCount = totalCount,
+            TotalPages = totalPages
+        };
+
+        return Ok(new ApiResponse<PagedResponse<ProductResponse>> {
             Success = true,
-            Message = "상품 목록 조회에 성공했습니다.",
-            Data = products
+            Message = "상품 목록을 조회했습니다.",
+            Data = pagedResponse
         });
     }
 

@@ -1,8 +1,8 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using SmartWMS.Api.Dtos.Common;
 
 namespace SmartWMS.Api.Dtos.Stocks;
 
-public class StockHistorySearchRequest {
+public class StockHistorySearchRequest : PagedRequest {
     /// <summary>
     /// 상품 코드 또는 상품명 검색어
     /// </summary>
@@ -23,16 +23,4 @@ public class StockHistorySearchRequest {
     /// 조회 종료일
     /// </summary>
     public DateTime? EndDate { get; set; }
-
-    /// <summary>
-    /// 현재 페이지
-    /// </summary>
-    [Range(1, int.MaxValue)]
-    public int Page { get; set; } = 1;
-
-    /// <summary>
-    /// 페이지당 데이터 수
-    /// </summary>
-    [Range(1, 100)]
-    public int PageSize { get; set; } = 10;
 }
