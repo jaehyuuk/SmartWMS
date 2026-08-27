@@ -28,4 +28,8 @@ public class User {
     /// 사용자 권한
     /// </summary>
     public string Role { get; set; } = "USER";
+    /// <summary>
+    /// 비활성화
+    /// </summary>
+    public bool IsActive { get; set; } = true;
 }

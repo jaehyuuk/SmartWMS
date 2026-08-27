@@ -96,10 +96,11 @@ public class AuthController : ControllerBase {
                 x => x.UserId == normalizedUserId,
                 cancellationToken);
 
-        if (user is null) {
+        if (user is null || !user.IsActive) { // 비활성화인 경우에도 구분하기 어렵도록
             return Unauthorized(new ApiErrorResponse {
                 StatusCode = StatusCodes.Status401Unauthorized,
-                Message = "아이디 또는 비밀번호가 올바르지 않습니다."
+                Message = "아이디 또는 비밀번호가 올바르지 않습니다.",
+                Detail = null
             });
         }
 

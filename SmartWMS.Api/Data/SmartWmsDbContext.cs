@@ -124,6 +124,10 @@ public class SmartWmsDbContext : DbContext {
             entity.Property(x => x.Role)
                 .HasMaxLength(20)
                 .IsRequired();
+
+            entity.Property(x => x.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
         });
     }
 }
