@@ -14,7 +14,7 @@ public class SmartWmsDbContext : DbContext {
     public DbSet<Inbound> Inbounds => Set<Inbound>();
     public DbSet<Outbound> Outbounds => Set<Outbound>();
     public DbSet<User> Users => Set<User>();
-
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
         base.OnModelCreating(modelBuilder);
 
@@ -128,6 +128,28 @@ public class SmartWmsDbContext : DbContext {
             entity.Property(x => x.IsActive)
                 .IsRequired()
                 .HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<RefreshToken>(entity => {
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.TokenHash)
+                .IsRequired()
+                .HasMaxLength(128);
+
+            entity.Property(x => x.ExpiresAt)
+                .IsRequired();
+
+            entity.Property(x => x.CreatedAt)
+                .IsRequired();
+
+            entity.HasIndex(x => x.TokenHash)
+                .IsUnique();
+
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

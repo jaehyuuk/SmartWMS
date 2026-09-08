@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SmartWMS.Api.Data;
+using SmartWMS.Api.Services;
 using SmartWMS.Api.Tests.Helpers;
 using SmartWMS.Api.Tests.Infrastructure;
 using System.Net;
@@ -827,6 +829,263 @@ public class AuthIntegrationTests
 
         var response = await client.GetAsync(
             "/api/Users");
+
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RefreshToken_Should_Be_Rotated_And_Old_Token_Should_Be_Rejected()
+    {
+        await using var factory =
+            new CustomWebApplicationFactory();
+
+        await factory.ResetDatabaseAsync();
+
+        var client = factory.CreateClient();
+
+        await AuthTestHelper.RegisterAsync(
+            client,
+            "refreshuser",
+            "Test1234!",
+            "리프레시사용자");
+
+        var loginResponse = await client.PostAsJsonAsync(
+            "/api/Auth/login",
+            new {
+                UserId = "refreshuser",
+                Password = "Test1234!"
+            });
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            loginResponse.StatusCode);
+
+        var loginContent = await loginResponse.Content
+            .ReadAsStringAsync();
+
+        using var loginJson =
+            JsonDocument.Parse(loginContent);
+
+        var refreshToken = loginJson.RootElement
+            .GetProperty("data")
+            .GetProperty("refreshToken")
+            .GetString();
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(refreshToken));
+
+        // 첫 번째 Refresh Token 사용
+        var firstRefreshResponse = await client.PostAsJsonAsync(
+            "/api/Auth/refresh",
+            new {
+                RefreshToken = refreshToken
+            });
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            firstRefreshResponse.StatusCode);
+
+        var firstRefreshContent =
+            await firstRefreshResponse.Content
+                .ReadAsStringAsync();
+
+        using var refreshJson =
+            JsonDocument.Parse(firstRefreshContent);
+
+        var newAccessToken = refreshJson.RootElement
+            .GetProperty("data")
+            .GetProperty("accessToken")
+            .GetString();
+
+        var newRefreshToken = refreshJson.RootElement
+            .GetProperty("data")
+            .GetProperty("refreshToken")
+            .GetString();
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(newAccessToken));
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(newRefreshToken));
+
+        Assert.NotEqual(
+            refreshToken,
+            newRefreshToken);
+
+        // 기존 Refresh Token 재사용
+        var secondRefreshResponse = await client.PostAsJsonAsync(
+            "/api/Auth/refresh",
+            new {
+                RefreshToken = refreshToken
+            });
+
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            secondRefreshResponse.StatusCode);
+
+        // DB 상태 확인
+        using (var scope = factory.Services.CreateScope()) {
+            var dbContext = scope.ServiceProvider
+                .GetRequiredService<SmartWmsDbContext>();
+
+            var tokens = await dbContext.RefreshTokens
+                .AsNoTracking()
+                .OrderBy(x => x.Id)
+                .ToListAsync();
+
+            Assert.Equal(
+                2,
+                tokens.Count);
+
+            // 기존 Token은 폐기됨
+            Assert.NotNull(
+                tokens[0].RevokedAt);
+
+            // 새 Token은 아직 사용 가능
+            Assert.Null(
+                tokens[1].RevokedAt);
+
+            Assert.NotEqual(
+                tokens[0].TokenHash,
+                tokens[1].TokenHash);
+        }
+    }
+
+    [Fact]
+    public async Task RefreshToken_Should_Return_Unauthorized_When_Token_Is_Expired()
+    {
+        await using var factory =
+            new CustomWebApplicationFactory();
+
+        await factory.ResetDatabaseAsync();
+
+        var client = factory.CreateClient();
+
+        await AuthTestHelper.RegisterAsync(
+            client,
+            "expireduser",
+            "Test1234!",
+            "만료사용자");
+
+        var loginResponse = await client.PostAsJsonAsync(
+            "/api/Auth/login",
+            new {
+                UserId = "expireduser",
+                Password = "Test1234!"
+            });
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            loginResponse.StatusCode);
+
+        var loginContent = await loginResponse.Content
+            .ReadAsStringAsync();
+
+        using var loginJson =
+            JsonDocument.Parse(loginContent);
+
+        var refreshToken = loginJson.RootElement
+            .GetProperty("data")
+            .GetProperty("refreshToken")
+            .GetString();
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(refreshToken));
+
+        // DB에서 Refresh Token을 강제로 만료 상태로 변경
+        using (var scope = factory.Services.CreateScope()) {
+            var dbContext = scope.ServiceProvider
+                .GetRequiredService<SmartWmsDbContext>();
+
+            var refreshTokenHash =
+                new JwtTokenService(
+                    factory.Services
+                        .GetRequiredService<IConfiguration>())
+                    .HashRefreshToken(refreshToken!);
+
+            var savedToken = await dbContext.RefreshTokens
+                .FirstAsync(x =>
+                    x.TokenHash == refreshTokenHash);
+
+            savedToken.ExpiresAt =
+                DateTime.UtcNow.AddMinutes(-1);
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        var response = await client.PostAsJsonAsync(
+            "/api/Auth/refresh",
+            new {
+                RefreshToken = refreshToken
+            });
+
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RefreshToken_Should_Return_Unauthorized_When_User_Is_Inactive()
+    {
+        await using var factory =
+            new CustomWebApplicationFactory();
+
+        await factory.ResetDatabaseAsync();
+
+        var client = factory.CreateClient();
+
+        await AuthTestHelper.RegisterAsync(
+            client,
+            "inactiveuser2",
+            "Test1234!",
+            "비활성사용자");
+
+        var loginResponse = await client.PostAsJsonAsync(
+            "/api/Auth/login",
+            new {
+                UserId = "inactiveuser2",
+                Password = "Test1234!"
+            });
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            loginResponse.StatusCode);
+
+        var loginContent = await loginResponse.Content
+            .ReadAsStringAsync();
+
+        using var loginJson =
+            JsonDocument.Parse(loginContent);
+
+        var refreshToken = loginJson.RootElement
+            .GetProperty("data")
+            .GetProperty("refreshToken")
+            .GetString();
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(refreshToken));
+
+        // 사용자 비활성화
+        using (var scope = factory.Services.CreateScope()) {
+            var dbContext = scope.ServiceProvider
+                .GetRequiredService<SmartWmsDbContext>();
+
+            var user = await dbContext.Users
+                .FirstAsync(x =>
+                    x.UserId == "inactiveuser2");
+
+            user.IsActive = false;
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        var response = await client.PostAsJsonAsync(
+            "/api/Auth/refresh",
+            new {
+                RefreshToken = refreshToken
+            });
 
         Assert.Equal(
             HttpStatusCode.Unauthorized,

@@ -20,15 +20,18 @@ public class AuthController : ControllerBase {
     private readonly SmartWmsDbContext _dbContext;
     private readonly IPasswordHasher<User> _passwordHasher;
     private readonly JwtTokenService _jwtTokenService;
+    private readonly IConfiguration _configuration;
 
     public AuthController(
         SmartWmsDbContext dbContext,
         IPasswordHasher<User> passwordHasher,
-        JwtTokenService jwtTokenService)
+        JwtTokenService jwtTokenService,
+        IConfiguration configuration)
     {
         _dbContext = dbContext;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
+        _configuration = configuration;
     }
 
     // 회원 등록
@@ -120,11 +123,42 @@ public class AuthController : ControllerBase {
         // 로그인 성공 시 JWT Access Token 생성
         var accessToken = _jwtTokenService.CreateToken(user);
 
+        // Refresh Token 원문 생성
+        var refreshToken =
+            _jwtTokenService.CreateRefreshToken();
+
+        // DB 저장용 Hash 생성
+        var refreshTokenHash =
+            _jwtTokenService.HashRefreshToken(
+                refreshToken);
+
+        // Refresh Token 만료 기간 조회
+        var refreshTokenDays =
+            _configuration.GetValue<int>(
+                "Jwt:RefreshTokenDays");
+
+        var now = DateTime.UtcNow;
+
+        // Refresh Token Hash를 DB에 저장
+        var refreshTokenEntity = new RefreshToken {
+            UserId = user.Id,
+            TokenHash = refreshTokenHash,
+            CreatedAt = now,
+            ExpiresAt = now.AddDays(refreshTokenDays)
+        };
+
+        _dbContext.RefreshTokens.Add(
+            refreshTokenEntity);
+
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
+
         return Ok(new ApiResponse<object> {
             Success = true,
             Message = "로그인에 성공했습니다.",
             Data = new {
                 accessToken,
+                refreshToken,
                 user.Id,
                 user.UserId,
                 user.Name,
@@ -170,6 +204,87 @@ public class AuthController : ControllerBase {
                 user.UserId,
                 user.Name,
                 user.Role
+            }
+        });
+    }
+
+    // Access Token 재발급
+    [AllowAnonymous]
+    [HttpPost("refresh")]
+    public async Task<ActionResult<ApiResponse<object>>> Refresh(
+        RefreshTokenRequest request,
+        CancellationToken cancellationToken)
+    {
+
+        if (string.IsNullOrWhiteSpace(request.RefreshToken)) {
+            return Unauthorized(new ApiErrorResponse {
+                StatusCode = StatusCodes.Status401Unauthorized,
+                Message = "Refresh Token이 유효하지 않습니다."
+            });
+        }
+
+        var refreshTokenHash =
+            _jwtTokenService.HashRefreshToken(
+                request.RefreshToken);
+
+        var savedRefreshToken = await _dbContext.RefreshTokens
+            .Include(x => x.User)
+            .FirstOrDefaultAsync(
+                x => x.TokenHash == refreshTokenHash,
+                cancellationToken);
+
+        if (savedRefreshToken is null ||
+            savedRefreshToken.RevokedAt is not null ||
+            savedRefreshToken.ExpiresAt <= DateTime.UtcNow ||
+            !savedRefreshToken.User.IsActive) {
+
+            return Unauthorized(new ApiErrorResponse {
+                StatusCode = StatusCodes.Status401Unauthorized,
+                Message = "Refresh Token이 유효하지 않습니다."
+            });
+        }
+
+        var now = DateTime.UtcNow;
+
+        // 기존 Refresh Token 폐기
+        savedRefreshToken.RevokedAt = now;
+
+        // 새로운 Access Token 생성
+        var newAccessToken =
+            _jwtTokenService.CreateToken(
+                savedRefreshToken.User);
+
+        // 새로운 Refresh Token 생성
+        var newRefreshToken =
+            _jwtTokenService.CreateRefreshToken();
+
+        var newRefreshTokenHash =
+            _jwtTokenService.HashRefreshToken(
+                newRefreshToken);
+
+        var refreshTokenDays =
+            _configuration.GetValue<int>(
+                "Jwt:RefreshTokenDays");
+
+        var newRefreshTokenEntity = new RefreshToken {
+            UserId = savedRefreshToken.UserId,
+            TokenHash = newRefreshTokenHash,
+            CreatedAt = now,
+            ExpiresAt = now.AddDays(refreshTokenDays)
+        };
+
+        _dbContext.RefreshTokens.Add(
+            newRefreshTokenEntity);
+
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        return Ok(new ApiResponse<object> {
+            Success = true,
+            Message = "Token 재발급에 성공했습니다.",
+            Data = new {
+                accessToken = newAccessToken,
+                refreshToken = newRefreshToken
             }
         });
     }

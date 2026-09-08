@@ -3,6 +3,8 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using SmartWMS.Api.Models;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace SmartWMS.Api.Services;
 
@@ -58,5 +60,20 @@ public class JwtTokenService {
 
         return new JwtSecurityTokenHandler()
             .WriteToken(token);
+    }
+
+    // Refresh Token 원문 생성
+    public string CreateRefreshToken() {
+        var randomBytes = RandomNumberGenerator.GetBytes(64);
+
+        return Convert.ToBase64String(randomBytes);
+    }
+
+    // Refresh Token을 DB 저장용 Hash 값으로 변환
+    public string HashRefreshToken(string refreshToken) {
+        var tokenBytes = Encoding.UTF8.GetBytes(refreshToken);
+        var hashBytes = SHA256.HashData(tokenBytes);
+
+        return Convert.ToHexString(hashBytes);
     }
 }
