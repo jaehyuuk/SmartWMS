@@ -48,6 +48,11 @@ builder.Services.Configure<ApiBehaviorOptions>(options => {
 builder.Services.AddDbContext<SmartWmsDbContext>(options =>
     options.UseSqlServer(connectionString));
 
+// Health Check 등록
+builder.Services
+    .AddHealthChecks()
+    .AddDbContextCheck<SmartWmsDbContext>();
+
 // Swagger 등록
 builder.Services.AddEndpointsApiExplorer();
 
@@ -143,6 +148,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Health Check Endpoint
+app.MapHealthChecks("/health");
 
 app.Run();
 
