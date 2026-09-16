@@ -1,6 +1,18 @@
+# Visual Studio
 .vs/
-bin/
-obj/
+**/bin/
+**/obj/
 
+# User files
 *.user
 *.suo
+
+# Environment secrets
+.env
+
+# Test results
+TestResults/
+
+# OS
+Thumbs.db
+.DS_Store

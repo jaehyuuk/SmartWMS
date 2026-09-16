@@ -1,0 +1,37 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: smartwms-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD}"
+    ports:
+      - "1433:1433"
+    volumes:
+      - smartwms-sql-data:/var/opt/mssql
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smartwms-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:8080"
+
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=SmartWMS;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;"
+
+      Jwt__Issuer: "SmartWMS"
+      Jwt__Audience: "SmartWMSClient"
+      Jwt__Key: "${JWT_KEY}"
+      Jwt__ExpireMinutes: "60"
+      Jwt__RefreshTokenDays: "7"
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      - sqlserver
+
+volumes:
+  smartwms-sql-data:
